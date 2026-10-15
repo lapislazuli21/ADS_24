@@ -1,0 +1,87 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: wordcount-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  loadbalancer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wordcount-loadbalancer
+    depends_on:
+      - wordcount1
+      - wordcount2
+      - wordcount3
+    environment:
+      RPC_PORT: 18812
+      WORDCOUNTERS: wordcount1,wordcount2,wordcount3
+    command: python /app/loadBalancer.py
+    ports:
+      - "18812:18812"
+    restart: unless-stopped
+
+  wordcount1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wordcount1-rpc
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RPC_PORT: 18812
+      CACHE_TTL_SECONDS: 3600
+    restart: unless-stopped
+
+  wordcount2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wordcount2-rpc
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RPC_PORT: 18812
+      CACHE_TTL_SECONDS: 3600
+    restart: unless-stopped
+
+  wordcount3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wordcount3-rpc
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RPC_PORT: 18812
+      CACHE_TTL_SECONDS: 3600
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wordcount-client
+    depends_on:
+      - loadbalancer
+    environment:
+      RPC_HOST: loadbalancer
+      RPC_PORT: 18812
+    command: python /app/client.py
+    profiles: ["tools"]
