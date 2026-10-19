@@ -38,7 +38,7 @@ async def receive_requests(r_cl, w_cl):
 
     finally:
         active[server] -= 1
-        print(f"[{server}] response time: {timing['total']:.2f} ms | least_rt={least_rt} active={active}")
+        print(f"{server} response time: {timing['total']:.2f} ms | least_rt={least_rt} active={active}")
         if w_wc is not None:
             w_wc.close()
             await w_wc.wait_closed()
