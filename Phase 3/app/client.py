@@ -13,21 +13,18 @@ DURATION  = int(os.getenv("DURATION", "10"))
 HOT_RATIO = float(os.getenv("HOT_RATIO", "0.2"))
 OUTPUT    = os.getenv("OUTPUT", "")
 
-# references = file names in texts/ without .txt
 TEXTS     = ["wicked", "saturday_night", "the_substance"]
 KEYWORDS  = ["it", "has", "she", "away", "glimpse", "once", "noise", "hear", "light", "on", "the", "and", "love", "night", "dance", "witch", "you", "time", "never", "good"]
 
 def request(kind):
-    # one client = one connection = one request; returns (kind, latency in ms), latency None on failure
     try:
         conn = rpyc.connect(RPC_HOST, RPC_PORT, config={"allow_public_attrs": True})
     except Exception:
         return kind, None
     try:
         start = time.perf_counter()
-        root = conn.root  # fetch the root before the timer, so only the request is timed
+        root = conn.root
         if kind == "hot_keywords":
-            # list(...) copies the result to the client, so receiving the whole answer is timed
             list(root.get_hot_keywords(limit=5))
         else:
             root.count_word(random.choice(KEYWORDS), random.choice(TEXTS))
@@ -42,7 +39,6 @@ if __name__ == "__main__":
     conn = None
     last_error = None
 
-    # wait until the service is reachable
     for attempt in range(30):
         try:
             conn = rpyc.connect(RPC_HOST, RPC_PORT, config={"allow_public_attrs": True})
@@ -56,8 +52,6 @@ if __name__ == "__main__":
 
     conn.close()
 
-    # load generator: start RATE requests per second on a fixed schedule,
-    # each in its own thread, without waiting for earlier requests to finish
     pool = ThreadPoolExecutor(max_workers=1000)
     futures = []
     t0 = time.perf_counter()
@@ -68,7 +62,6 @@ if __name__ == "__main__":
         kind = "hot_keywords" if random.random() < HOT_RATIO else "count_word"
         futures.append(pool.submit(request, kind))
 
-    # wait for all requests to finish and collect their latencies
     results = [f.result() for f in futures]
     elapsed = time.perf_counter() - t0
     pool.shutdown()
@@ -77,7 +70,6 @@ if __name__ == "__main__":
     failed = len(results) - len(ok)
     print(f"Target rate: {RATE}/s, achieved: {len(ok) / elapsed:.1f}/s, failed: {failed}")
 
-    # overall first, then per request type
     for label, values in [("all", [l for _, l in ok])] + [
             (k, [l for kk, l in ok if kk == k]) for k in ("count_word", "hot_keywords")]:
         if len(values) >= 2:

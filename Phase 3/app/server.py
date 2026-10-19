@@ -44,12 +44,6 @@ class WordCountService(rpyc.Service):
         hot_keywords = REDIS_CLIENT.zrevrange("hot_keywords", 0, max(0, limit - 1), withscores=True)
         return [(keyword, int(score)) for keyword, score in hot_keywords]
 
-    # def exposed_clear_cache(self):
-    #     REDIS_CLIENT.delete("hot_keywords")
-    #     for key in REDIS_CLIENT.keys("wc:*"):
-    #         REDIS_CLIENT.delete(key)
-    #     return {"status": "ok"}
-
 if __name__ == "__main__":
     for _ in range(20):
         try:
