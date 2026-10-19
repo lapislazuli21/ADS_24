@@ -23,7 +23,7 @@ services:
     environment:
       RPC_PORT: 18812
       WORDCOUNTERS: wordcount1,wordcount2,wordcount3
-    command: python /app/loadBalancer.py
+    command: python /app/loadBalancer_leastResponse.py
     ports:
       - "18812:18812"
     restart: unless-stopped
@@ -33,6 +33,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: wordcount1-rpc
+    cpus: 0.1
     depends_on:
       redis:
         condition: service_healthy
@@ -48,6 +49,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: wordcount2-rpc
+    cpus: 0.1
     depends_on:
       redis:
         condition: service_healthy
@@ -63,6 +65,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: wordcount3-rpc
+    cpus: 0.1
     depends_on:
       redis:
         condition: service_healthy
