@@ -103,14 +103,24 @@ async def handle_client(client_reader, client_writer):
         flush=True,
     )
 
+    relay_tasks = [
+        asyncio.create_task(relay(client_reader, upstream_writer)),
+        asyncio.create_task(relay(upstream_reader, client_writer)),
+    ]
     try:
-        await asyncio.gather(
-            relay(client_reader, upstream_writer),
-            relay(upstream_reader, client_writer),
+        completed, _ = await asyncio.wait(
+            relay_tasks, return_when=asyncio.FIRST_COMPLETED
         )
-    except (ConnectionError, OSError, asyncio.IncompleteReadError) as error:
-        print(f"[route] connection to {selected_host} ended: {error}", flush=True)
+        for task in completed:
+            try:
+                task.result()
+            except (ConnectionError, OSError, asyncio.IncompleteReadError) as error:
+                print(f"[route] connection to {selected_host} ended: {error}", flush=True)
     finally:
+        for task in relay_tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*relay_tasks, return_exceptions=True)
         active[selected_host] -= 1
         upstream_writer.close()
         client_writer.close()

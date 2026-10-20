@@ -15,7 +15,7 @@ services:
       dockerfile: Dockerfile
     container_name: phase4-wordcount1
     restart: unless-stopped
-    cpus: 0.2
+    cpus: 0.1
     environment:
       INSTANCE_NAME: wordcount1
       REDIS_HOST: redis
@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile
     container_name: phase4-wordcount2
     restart: unless-stopped
-    cpus: 0.2
+    cpus: 0.1
     environment:
       INSTANCE_NAME: wordcount2
       REDIS_HOST: redis
@@ -60,7 +60,7 @@ services:
       dockerfile: Dockerfile
     container_name: phase4-wordcount3
     restart: unless-stopped
-    cpus: 0.2
+    cpus: 0.1
     environment:
       INSTANCE_NAME: wordcount3
       REDIS_HOST: redis
@@ -102,5 +102,5 @@ services:
     environment:
       RPC_HOST: loadbalancer
       RPC_PORT: 18812
-      RATE: 20
+      RATE: 100
       DURATION: 10
