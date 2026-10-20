@@ -1,0 +1,106 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: phase4-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  wordcount1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phase4-wordcount1
+    restart: unless-stopped
+    cpus: 0.2
+    environment:
+      INSTANCE_NAME: wordcount1
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RPC_PORT: 18812
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck: &server_healthcheck
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; socket.create_connection(('127.0.0.1', 18812), timeout=2).close()",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 2
+      start_period: 3s
+
+  wordcount2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phase4-wordcount2
+    restart: unless-stopped
+    cpus: 0.2
+    environment:
+      INSTANCE_NAME: wordcount2
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RPC_PORT: 18812
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck: *server_healthcheck
+
+  wordcount3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phase4-wordcount3
+    restart: unless-stopped
+    cpus: 0.2
+    environment:
+      INSTANCE_NAME: wordcount3
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RPC_PORT: 18812
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck: *server_healthcheck
+
+  loadbalancer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phase4-loadbalancer
+    command: ["python", "/app/load_balancer.py"]
+    restart: unless-stopped
+    environment:
+      RPC_PORT: 18812
+      REPLICAS: wordcount1:18812,wordcount2:18812,wordcount3:18812
+      CHECK_INTERVAL_SECONDS: 2
+      CONNECT_TIMEOUT_SECONDS: 1
+    depends_on:
+      - wordcount1
+      - wordcount2
+      - wordcount3
+    ports:
+      - "18812:18812"
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phase4-client
+    command: ["python", "/app/client.py"]
+    profiles: ["tools"]
+    depends_on:
+      - loadbalancer
+    environment:
+      RPC_HOST: loadbalancer
+      RPC_PORT: 18812
+      RATE: 20
+      DURATION: 10
