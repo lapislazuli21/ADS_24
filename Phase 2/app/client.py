@@ -11,7 +11,7 @@ RPC_PORT  = int(os.getenv("RPC_PORT", "18812"))
 RATE      = int(os.getenv("RATE", "100"))
 DURATION  = int(os.getenv("DURATION", "10"))
 HOT_RATIO = float(os.getenv("HOT_RATIO", "0.2"))
-OUTPUT    = os.getenv("OUTPUT", "")
+# OUTPUT    = os.getenv("OUTPUT", "")
 
 TEXTS     = ["wicked", "saturday_night", "the_substance"]
 KEYWORDS  = ["it", "has", "she", "away", "glimpse", "once", "noise", "hear", "light", "on", "the", "and", "love", "night", "dance", "witch", "you", "time", "never", "good"]
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             print(f"{label}: n={len(values)}, average {statistics.mean(values):.2f} ms, "
                   f"p99 {statistics.quantiles(values, n=100)[98]:.2f} ms")
 
-    if OUTPUT:
-        with open(OUTPUT, "w") as f:
-            f.write("kind,latency_ms\n")
-            f.writelines(f"{k},{l:.3f}\n" for k, l in ok)
+    # if OUTPUT:
+    #     with open(OUTPUT, "w") as f:
+    #         f.write("kind,latency_ms\n")
+    #         f.writelines(f"{k},{l:.3f}\n" for k, l in ok)
