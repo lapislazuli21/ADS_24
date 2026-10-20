@@ -44,8 +44,20 @@ async def receive_requests(r_cl, w_cl):
         print(f"{server} response time: {timing['total']:.2f} ms | least_rt={least_rt} active={active}")
         w_wc.close()
         w_cl.close()
-        await w_wc.wait_closed()
-        await w_cl.wait_closed()
+        try:
+            await w_wc.wait_closed()
+        except (ConnectionResetError, BrokenPipeError):
+            pass
+        except Exception as e:
+            print("Received Exception: ", e.__class__.__name__)
+            traceback.print_exc()
+        try:
+            await w_cl.wait_closed()
+        except (ConnectionResetError, BrokenPipeError):
+            pass
+        except Exception as e:
+            print("Received Exception: ", e.__class__.__name__)
+            traceback.print_exc()
 
 async def send_requests(r_cl, w_wc, timing): # this is meant for client to server comm
     while True:
