@@ -9,14 +9,18 @@ WORDCOUNTERS = os.getenv("WORDCOUNTERS", "wordcount1,wordcount2,wordcount3")
 SERVERS      = [x.strip() for x in WORDCOUNTERS.split(",")]
 BUFFERSIZE   = 65536
 
-least_rt      = {s: 0.001 for s in SERVERS}
+tasks        = set()
+least_rt     = {s: 0.001 for s in SERVERS}
 active       = {s: 0 for s in SERVERS}
 
 def score(server):
     return least_rt[server] * (active[server] + 1)
 
 async def receive_requests(r_cl, w_cl):
-
+    task = asyncio.current_task()
+    tasks.add(task)
+    task.add_done_callback(tasks.discard)
+    
     server = min(SERVERS, key=score)
     active[server] += 1
 
@@ -27,22 +31,20 @@ async def receive_requests(r_cl, w_cl):
         connect_start = time.perf_counter()
         r_wc, w_wc = await asyncio.open_connection(server, RPC_PORT)
         timing["total"] += (time.perf_counter() - connect_start) * 1000
-
         await asyncio.gather(send_requests(r_cl, w_wc, timing),
                              send_responses(r_wc, w_cl, timing))
-
-        least_rt[server] = timing["total"]
+    except (ConnectionResetError, BrokenPipeError):
+        pass
     except Exception as e:
         print("Received Exception: ", e.__class__.__name__)
         traceback.print_exc()
-
     finally:
         active[server] -= 1
+        least_rt[server] = timing["total"]
         print(f"{server} response time: {timing['total']:.2f} ms | least_rt={least_rt} active={active}")
-        if w_wc is not None:
-            w_wc.close()
-            await w_wc.wait_closed()
+        w_wc.close()
         w_cl.close()
+        await w_wc.wait_closed()
         await w_cl.wait_closed()
 
 async def send_requests(r_cl, w_wc, timing): # this is meant for client to server comm

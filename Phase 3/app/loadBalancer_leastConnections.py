@@ -8,12 +8,16 @@ WORDCOUNTERS = os.getenv("WORDCOUNTERS", "wordcount1,wordcount2,wordcount3")
 SERVERS      = [x.strip() for x in WORDCOUNTERS.split(",")]
 BUFFERSIZE   = 65536
 
+tasks        = set()
 active       = {s: 0 for s in SERVERS}
 
 def score(server):
     return active[server]
 
 async def receive_requests(r_cl, w_cl):
+    task = asyncio.current_task()
+    tasks.add(task)
+    task.add_done_callback(tasks.discard)
 
     server = min(SERVERS, key=score)
     active[server] += 1
@@ -25,18 +29,29 @@ async def receive_requests(r_cl, w_cl):
 
         await asyncio.gather(send_requests(r_cl, w_wc),
                              send_responses(r_wc, w_cl))
-
+    except (ConnectionResetError, BrokenPipeError):
+        pass
     except Exception as e:
         print("Received Exception: ", e.__class__.__name__)
         traceback.print_exc()
-
     finally:
         active[server] -= 1
-        if w_wc is not None:
-            w_wc.close()
-            await w_wc.wait_closed()
+        w_wc.close()
         w_cl.close()
-        await w_cl.wait_closed()
+        try:
+            await w_wc.wait_closed()
+        except (ConnectionResetError, BrokenPipeError):
+            pass
+        except Exception as e:
+            print("Received Exception: ", e.__class__.__name__)
+            traceback.print_exc()
+        try:
+            await w_cl.wait_closed()
+        except (ConnectionResetError, BrokenPipeError):
+            pass
+        except Exception as e:
+            print("Received Exception: ", e.__class__.__name__)
+            traceback.print_exc()
 
 async def send_requests(r_cl, w_wc): # this is meant for client to server comm
     while True:
