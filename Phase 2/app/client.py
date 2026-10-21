@@ -14,7 +14,8 @@ HOT_RATIO = float(os.getenv("HOT_RATIO", "0.2"))
 # OUTPUT    = os.getenv("OUTPUT", "")
 
 TEXTS     = ["wicked", "saturday_night", "the_substance"]
-KEYWORDS  = ["it", "has", "she", "away", "glimpse", "once", "noise", "hear", "light", "on", "the", "and", "love", "night", "dance", "witch", "you", "time", "never", "good"]
+KEYWORDS  = ["it", "has", "she", "away", "glimpse", "once", "noise", "hear",
+             "light", "on", "the", "and", "love", "night", "dance", "witch", "you", "time", "never", "good"]
 
 def request(kind):
     try:
@@ -66,12 +67,12 @@ if __name__ == "__main__":
     elapsed = time.perf_counter() - t0
     pool.shutdown()
 
-    ok = [(k, l) for k, l in results if l is not None]
+    ok = [(kind, latency) for kind, latency in results if latency is not None]
     failed = len(results) - len(ok)
     print(f"Target rate: {RATE}/s, achieved: {len(ok) / elapsed:.1f}/s, failed: {failed}")
 
-    for label, values in [("all", [l for _, l in ok])] + [
-            (k, [l for kk, l in ok if kk == k]) for k in ("count_word", "hot_keywords")]:
+    for label, values in [("all", [latency for _, latency in ok])] + [
+            (kind, [latency for k, latency in ok if k == kind]) for kind in ("count_word", "hot_keywords")]:
         if len(values) >= 2:
             print(f"{label}: n={len(values)}, average {statistics.mean(values):.2f} ms, "
                   f"p99 {statistics.quantiles(values, n=100)[98]:.2f} ms")
