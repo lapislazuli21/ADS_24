@@ -81,6 +81,7 @@ services:
     environment:
       RPC_PORT: 18812
       REPLICAS: wordcount1:18812,wordcount2:18812,wordcount3:18812
+      ALGORITHM: ${ALGORITHM:-least_connections}
       CHECK_INTERVAL_SECONDS: 2
       CONNECT_TIMEOUT_SECONDS: 1
     depends_on:

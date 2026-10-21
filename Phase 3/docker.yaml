@@ -1,9 +1,9 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: wordcount-redis
+    container_name: phase3-redis
     ports:
-      - "6379:6379"
+      - "16380:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -15,7 +15,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount-loadbalancer
+    container_name: phase3-loadbalancer
     depends_on:
       - wordcount1
       - wordcount2
@@ -23,16 +23,16 @@ services:
     environment:
       RPC_PORT: 18812
       WORDCOUNTERS: wordcount1,wordcount2,wordcount3
-    command: python /app/loadBalancer_leastResponse.py
+    command: ["python", "/app/${LB_SCRIPT:-loadBalancer_leastResponse.py}"]
     ports:
-      - "18812:18812"
+      - "18815:18812"
     restart: unless-stopped
 
   wordcount1:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount1-rpc
+    container_name: phase3-wordcount1
     cpus: 0.1
     depends_on:
       redis:
@@ -48,7 +48,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount2-rpc
+    container_name: phase3-wordcount2
     cpus: 0.1
     depends_on:
       redis:
@@ -64,7 +64,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount3-rpc
+    container_name: phase3-wordcount3
     cpus: 0.1
     depends_on:
       redis:
@@ -80,7 +80,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount-client
+    container_name: phase3-wordcount-client
     depends_on:
       - loadbalancer
     environment:

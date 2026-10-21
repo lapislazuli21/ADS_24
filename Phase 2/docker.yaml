@@ -1,9 +1,9 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: wordcount-redis
+    container_name: phase2-redis
     ports:
-      - "6379:6379"
+      - "16379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -15,7 +15,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount-rpc
+    container_name: phase2-wordcount-rpc
     cpus: 0.1
     depends_on:
       redis:
@@ -26,14 +26,14 @@ services:
       RPC_PORT: 18812
       CACHE_TTL_SECONDS: 3600
     ports:
-      - "18812:18812"
+      - "18814:18812"
     restart: unless-stopped
 
   client:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: wordcount-client
+    container_name: phase2-wordcount-client
     depends_on:
       - wordcount
     environment:
