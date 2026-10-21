@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 
 RPC_PORT = int(os.getenv("RPC_PORT", "18812"))
 REPLICAS = [
@@ -11,10 +12,13 @@ REPLICAS = [
 ]
 CHECK_INTERVAL = float(os.getenv("CHECK_INTERVAL_SECONDS", "2"))
 CONNECT_TIMEOUT = float(os.getenv("CONNECT_TIMEOUT_SECONDS", "1"))
+ALGORITHM = os.getenv("ALGORITHM", "least_connections").lower()
 BUFFER_SIZE = 65536
+SUPPORTED_ALGORITHMS = {"least_connections", "least_response_time"}
 
 health = {host: False for host, _ in REPLICAS}
 active = {host: 0 for host, _ in REPLICAS}
+response_time_ms = {host: 1.0 for host, _ in REPLICAS}
 
 
 def set_health(host, healthy):
@@ -56,14 +60,23 @@ async def probe_and_update(host, port):
 
 def choose_replicas():
     healthy = [host for host, _ in REPLICAS if health[host]]
-    return sorted(healthy, key=lambda host: active[host])
+    if ALGORITHM == "least_connections":
+        return sorted(healthy, key=lambda host: active[host])
+    return sorted(
+        healthy,
+        key=lambda host: response_time_ms[host] * (active[host] + 1),
+    )
 
 
-async def relay(reader, writer):
+async def relay(reader, writer, on_first_data=None):
+    first_data = True
     while True:
         data = await reader.read(BUFFER_SIZE)
         if not data:
             break
+        if first_data and on_first_data is not None:
+            on_first_data()
+            first_data = False
         writer.write(data)
         await writer.drain()
     if writer.can_write_eof():
@@ -98,14 +111,26 @@ async def handle_client(client_reader, client_writer):
 
     active[selected_host] += 1
     print(
-        f"[route] selected {selected_host}; active={active[selected_host]} "
+        f"[route] algorithm={ALGORITHM} selected {selected_host}; active={active[selected_host]} "
         f"healthy={[host for host in health if health[host]]}",
         flush=True,
     )
 
+    timing = {"request_started": None, "response_ms": None}
+
+    def request_started():
+        if timing["request_started"] is None:
+            timing["request_started"] = time.perf_counter()
+
+    def response_started():
+        if timing["request_started"] is not None and timing["response_ms"] is None:
+            timing["response_ms"] = (
+                time.perf_counter() - timing["request_started"]
+            ) * 1000
+
     relay_tasks = [
-        asyncio.create_task(relay(client_reader, upstream_writer)),
-        asyncio.create_task(relay(upstream_reader, client_writer)),
+        asyncio.create_task(relay(client_reader, upstream_writer, request_started)),
+        asyncio.create_task(relay(upstream_reader, client_writer, response_started)),
     ]
     try:
         completed, _ = await asyncio.wait(
@@ -122,6 +147,11 @@ async def handle_client(client_reader, client_writer):
                 task.cancel()
         await asyncio.gather(*relay_tasks, return_exceptions=True)
         active[selected_host] -= 1
+        if timing["response_ms"] is not None:
+            response_time_ms[selected_host] = (
+                0.8 * response_time_ms[selected_host]
+                + 0.2 * timing["response_ms"]
+            )
         upstream_writer.close()
         client_writer.close()
         try:
@@ -135,12 +165,20 @@ async def handle_client(client_reader, client_writer):
 
 
 async def main():
+    if ALGORITHM not in SUPPORTED_ALGORITHMS:
+        raise ValueError(
+            f"Unsupported ALGORITHM={ALGORITHM!r}; choose one of "
+            f"{', '.join(sorted(SUPPORTED_ALGORITHMS))}"
+        )
     await asyncio.gather(
         *(probe_and_update(host, port) for host, port in REPLICAS)
     )
     monitor_task = asyncio.create_task(monitor_replicas())
     server = await asyncio.start_server(handle_client, "0.0.0.0", RPC_PORT)
-    print(f"[startup] load balancer listening on 0.0.0.0:{RPC_PORT}", flush=True)
+    print(
+        f"[startup] algorithm={ALGORITHM} listening on 0.0.0.0:{RPC_PORT}",
+        flush=True,
+    )
     try:
         async with server:
             await server.serve_forever()
