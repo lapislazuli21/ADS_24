@@ -20,8 +20,8 @@ async def receive_requests(r_cl, w_cl):
     task.add_done_callback(tasks.discard)
 
     server = min(SERVERS, key=score)
+    print(f"Assigned to {server}, active connections: {active[server]} | active={active}")
     active[server] += 1
-    print(f"{server} active connections: {active[server]} | active={active}")
     w_wc = None
 
     try:
@@ -36,6 +36,7 @@ async def receive_requests(r_cl, w_cl):
         traceback.print_exc()
     finally:
         active[server] -= 1
+        print(f"{server} concluded, active connections: {active[server]} | active={active}")
         w_wc.close()
         w_cl.close()
         try:

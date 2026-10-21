@@ -22,6 +22,7 @@ async def receive_requests(r_cl, w_cl):
     task.add_done_callback(tasks.discard)
     
     server = min(SERVERS, key=score)
+    print(f"Assigned to {server}, scores={ {s: score(s) for s in SERVERS} }, least_rt={least_rt} active={active}")
     active[server] += 1
 
     timing = {"start": None, "total": 0.0}
